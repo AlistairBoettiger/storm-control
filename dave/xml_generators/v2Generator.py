@@ -67,6 +67,7 @@ class XMLRecipeParser(QtGui.QWidget):
 
         # A convenient list of dave actions required for parsing a <movie> tag
         self.movie_da_actions = [daveActions.DAMoveStage(),
+                                 daveActions.DADelay(),
                                  daveActions.DASetFocusLockTarget(),
                                  daveActions.DAFindSum(),
                                  daveActions.DACheckFocus(),
@@ -74,7 +75,6 @@ class XMLRecipeParser(QtGui.QWidget):
                                  daveActions.DASetParameters(),
                                  daveActions.DASetProgression(),
                                  daveActions.DASetDirectory(),
-                                 daveActions.DADelay(),
                                  daveActions.DAPause(),
                                  daveActions.DATakeMovie()]
 
@@ -109,6 +109,8 @@ class XMLRecipeParser(QtGui.QWidget):
                 movie_dict = nodeToDict.movieNodeToDict(child)
                 for action in self.movie_da_actions:
                     new_node = action.createETree(movie_dict)
+                    if not movie_dict.get("movestage",True) and type(action) is daveActions.DAMoveStage:
+                        new_node = None
                     if new_node is not None:
                         movie_block.append(new_node)
             
@@ -116,7 +118,21 @@ class XMLRecipeParser(QtGui.QWidget):
                 new_node = daveActions.DAValveProtocol().createETree({"name": child.text})
                 if new_node is not None:
                     primitives_xml.append(new_node)
-
+                    
+            elif child.tag == "delay": # Handle <delay> tag
+                new_node = daveActions.DADelay().createETree({"delay": child.text})
+                if new_node is not None:
+                    primitives_xml.append(new_node)
+            elif child.tag == "copy_directory": # Handle <copy_directory> tag
+                print "copy_directory"
+                source_path = child.find("source_path").text
+                target_path = child.find("target_path").text
+                delete_source = eval(child.find("delete_source").text)
+                dict_ = {"source_path":source_path,"target_path":target_path,"delete_source":delete_source}
+                print dict_
+                new_node = daveActions.DACopyFolders().createETree(dict_)
+                if new_node is not None:
+                    primitives_xml.append(new_node)
             elif child.tag == "change_directory": # Handle change_directory tag
                 new_node = daveActions.DASetDirectory().createETree({"directory": child.text})
                 if new_node is not None:

@@ -12,7 +12,7 @@
 
 from xml.etree import ElementTree
 from PyQt4 import QtCore
-
+import subprocess
 import sc_library.tcpMessage as tcpMessage
 
 ## addField
@@ -321,6 +321,7 @@ class DACheckFocus(DaveAction):
         self.action_type = "hal"
         self.num_focus_checks = 10 # A default number of focus checks
         self.focus_scan = False # The default is to not scan for focus
+        self.scan_range = False # The range to scan for focus in microns
         
     ## createETree
     #
@@ -375,8 +376,13 @@ class DACheckFocus(DaveAction):
         if node.find("focus_scan") is not None:
             self.focus_scan = True
 
+        # Add range if provided
+        if node.find("scan_range") is not None:
+            self.scan_range = float(node.find("scan_range").text)
+
         message_data = {"num_focus_checks": self.num_focus_checks,
-                        "focus_scan": self.focus_scan}
+                        "focus_scan": self.focus_scan,
+                        "scan_range": self.scan_range}
         
         self.message = tcpMessage.TCPMessage(message_type = "Check Focus Lock",
                                              message_data = message_data)
@@ -527,6 +533,93 @@ class DADelay(DaveAction):
             self.delay_timer.start(self.delay)
             print "Delaying " + str(self.delay) + " ms"
 
+## DACopyFolders
+#
+# This action starts a copy of folders.
+#
+class DACopyFolders(DaveAction):
+
+    ## __init__
+    #
+    def __init__(self):
+        DaveAction.__init__(self)
+    
+    ## abort
+    #
+    # Handle an external abort call
+    #
+    def abort(self):
+        self.completeAction(self.message)
+
+    ## cleanUp
+    #
+    # Handle clean up of the action
+    #
+    def cleanUp(self):
+        pass
+
+    ## createETree
+    #
+    # @param dict A dictionary.
+    #
+    # @return A ElementTree object or None.
+    #
+    def createETree(self, dictionary):
+        source_path = dictionary.get("source_path",None)
+        target_path = dictionary.get("target_path",None)
+        delete_source = dictionary.get("delete_source",False)
+        if source_path is not None and target_path is not None:
+            block = ElementTree.Element(str(type(self).__name__))
+            addField(block, "source_path", source_path)
+            addField(block, "target_path", target_path)
+            addField(block, "delete_source", delete_source)
+            return block
+
+    ## getDescriptor
+    #
+    # @return A string that describes the action.
+    #
+    def getDescriptor(self):
+        return "Copy from  " + str(self.source_path) + " to "+ str(self.target_path)
+
+
+    ## setup
+    #
+    # Perform post creation initialization.
+    #
+    # @param node The node of an ElementTree.
+    #
+    def setup(self, node):
+
+        # Prepare source and target paths and decide wheter to delete the source after
+        self.source_path = node.find("source_path").text
+        self.target_path = node.find("target_path").text
+        self.delete_source = eval(node.find("delete_source").text)
+        
+        # Create message and add delay time for accurate dave time estimates
+        self.message = tcpMessage.TCPMessage(message_type = "Copy",
+                                             message_data = {"source_path": self.source_path,
+                                                             "target_path": self.target_path,
+                                                             "delete_source":self.delete_source});
+        self.message.addResponse("duration", 1000)#assume 1 second for getting the subproccess of copying going
+
+    ## start
+    #
+    # Start the action.
+    #
+    # @param dummy Ignored.
+    # @param test_mode Send the command in test mode.
+    #
+    def start(self, dummy, test_mode):
+        self.message.setTestMode(test_mode)
+
+        if self.message.isTest():
+            self.completeAction(self.message)
+        else:
+            print "Started copying folder " + str(self.source_path) + " to "+ str(self.target_path)
+            cmd = 'python copyFolders_windows.py "'+ str(self.source_path) +'" "'+ str(self.target_path)+'" '+ str(self.delete_source)
+            p = subprocess.Popen(cmd)
+            self.completeAction(self.message)
 
 ## DAFindSum
 #

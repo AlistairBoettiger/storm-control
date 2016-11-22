@@ -47,7 +47,8 @@ def boolConv(value):
     else:
         return True
 
-movie_node_conversion = {"delay" : gf("delay", [int]),
+movie_node_conversion = {"movestage" : gf("movestage", [boolConv]),
+                         "delay" : gf("delay", [int]),
                          "directory" : gf("directory", [str]),
                          "find_sum" : gf("find_sum", [float]),
                          "check_focus": gf("check_focus", [None]),
