@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<recipe>
+
+<command_sequence>
+  <change_directory>C:\</change_directory>
+  <delay>5000</delay>
+  <copy_directory>
+    <source_path>C:\folder0</source_path>
+    <target_path>C:\folder1</target_path>
+    <delete_source>False</delete_source>
+  </copy_directory>
+
+</command_sequence>
+</recipe>
