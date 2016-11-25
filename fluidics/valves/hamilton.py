@@ -14,6 +14,7 @@ import serial
 import sys
 import time
 
+
 # ----------------------------------------------------------------------------------------
 # HamiltonMVP Class Definition
 # ----------------------------------------------------------------------------------------
@@ -22,7 +23,7 @@ class HamiltonMVP():
                  com_port = 2,
                  num_simulated_valves = 0,
                  verbose = False):
-
+        print serial.__file__
         # Define attributes
         self.com_port = com_port
         self.verbose = verbose
@@ -139,7 +140,7 @@ class HamiltonMVP():
     # ------------------------------------------------------------------------------------
     # Change Port Position
     # ------------------------------------------------------------------------------------ 
-    def changePort(self, valve_ID, port_ID, direction = 0, wait_until_done = False):
+    def changePort(self, valve_ID, port_ID, direction = 0, wait_until_done = True):
         # Check validity if valve and port IDs
         if not self.isValidValve(valve_ID):
             return False
@@ -150,21 +151,62 @@ class HamiltonMVP():
             # Compose message and increment port_ID (starts at 1)
             message = "LP" + str(direction) + str(port_ID+1) + "R\r"
 
-            response = self.inquireAndRespond(valve_ID, message)        
+            response = self.inquireAndRespond(valve_ID, message)
+            moveFail = False
             if response[0] == "Negative Acknowledge":
+                moveFail = True
                 print "Move failed: " + str(response)
 
             if response[1]: #Acknowledged move
                 self.current_port[valve_ID] = port_ID
 
             if wait_until_done:
-                self.waitUntilNotMoving()
-                
+                #Wait until valve stopped moving and check the port is correct
+                portGood = self.verifyPort(valve_ID,port_ID,wait_until_done=True)
+                if not portGood or moveFail:
+                    print "Suspect valve failure. Reinitializing..."
+                    #restart serial
+                    self.serial.close()
+                    self.serial = serial.Serial(port = self.com_port, 
+                                                     baudrate = 9600, 
+                                                     bytesize = serial.SEVENBITS, 
+                                                     parity = serial.PARITY_ODD, 
+                                                     stopbits = serial.STOPBITS_ONE, 
+                                                     timeout = 0.1)
+                    #reset chain
+                    self.resetChain()
+                    self.waitUntilNotMoving(valve_ID)
+                    #resend message for port change
+                    message = "LP" + str(direction) + str(port_ID+1) + "R\r"
+                    response = self.inquireAndRespond(valve_ID, message)
+                    #recheck port
+                    portGood = self.verifyPort(valve_ID,port_ID,wait_until_done=True)
+                    #if failed wait for user input
+                    if response[0] == "Negative Acknowledge" or not portGood:
+                        print "Move failed again: " + str(response)
+                        while True:
+                            time.sleep(1)
+                    if response[1]: #Acknowledged move
+                        self.current_port[valve_ID] = port_ID
             return response[1]
         else: ## simulation code
             self.current_port[valve_ID] = port_ID
             return True
 
+
+    # ------------------------------------------------------------------------------------
+    # Verify Serial Port
+    # ------------------------------------------------------------------------------------ 
+    def verifyPort(self,valve_ID,port_ID,wait_until_done=True):
+        if wait_until_done:
+            self.waitUntilNotMoving(valve_ID)
+        port_names = self.getDefaultPortNames(valve_ID=valve_ID)
+        real_port_name = self.getStatus(valve_ID=valve_ID)[0]
+        if real_port_name is in port_names:
+            real_port_ID = port_names.index(real_port_name)
+        else:
+            real_port_ID = -1
+        return real_port_ID==port_ID
     # ------------------------------------------------------------------------------------
     # Close Serial Port
     # ------------------------------------------------------------------------------------ 
