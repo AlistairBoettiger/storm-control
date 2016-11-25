@@ -202,7 +202,7 @@ class HamiltonMVP():
             self.waitUntilNotMoving(valve_ID)
         port_names = self.getDefaultPortNames(valve_ID=valve_ID)
         real_port_name = self.getStatus(valve_ID=valve_ID)[0]
-        if real_port_name is in port_names:
+        if real_port_name in port_names:
             real_port_ID = port_names.index(real_port_name)
         else:
             real_port_ID = -1
