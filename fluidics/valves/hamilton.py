@@ -176,7 +176,13 @@ class HamiltonMVP():
                     #reset chain
                     self.resetChain()
                     self.waitUntilNotMoving(valve_ID)
-                    #resend message for port change
+                    #resend message for port change to other valves
+                    for valve_ID_dif in range(self.num_valves):
+                        if valve_ID_dif!=valve_ID:
+                            port_ID_dif = self.current_port[valve_ID_dif]####TAG
+                            message = "LP" + str(direction) + str(port_ID_dif+1) + "R\r"
+                            response = self.inquireAndRespond(valve_ID_dif, message)
+                    #resend message for port change to current valves
                     message = "LP" + str(direction) + str(port_ID+1) + "R\r"
                     response = self.inquireAndRespond(valve_ID, message)
                     #recheck port
